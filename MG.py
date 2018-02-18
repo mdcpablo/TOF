@@ -38,20 +38,20 @@ def time_of_flight(M, N, q, sigt, v, tau, option):
     #   num_neutrons[n] ... number of neutrons @ right boundary (x=1cm) for time bin n
     # -----------------------------------------------------------------------------
 
-    print "Starting time of flight calculation...\n"
+    print "Starting time of flight calculation..."
 
     if option == 'log':
         detector_start_time = 1e-10
         detector_end_time = 1e-6
         times = np.logspace(np.log10(detector_start_time), np.log10(detector_end_time), num=N+1)
-	    dt = times[1:N+1] - times[0:N]
-	    t = 0.5*(times[1:N+1] + times[0:N])
+        dt = times[1:N+1] - times[0:N]
+        t = 0.5*(times[1:N+1] + times[0:N])
     elif option == 'lin':
         detector_start_time = 0
         detector_end_time = 1e-6
         times = np.linspace(detector_start_time, detector_end_time, num=N+1)
-	    dt = times[1:N+1] - times[0:N]
-	    t = 0.5*(times[1:N+1] + times[0:N])
+        dt = times[1:N+1] - times[0:N]
+        t = 0.5*(times[1:N+1] + times[0:N])
     else:
         print " ** Fatal Error: option must be 'lin' or 'log'" 
 
@@ -60,9 +60,9 @@ def time_of_flight(M, N, q, sigt, v, tau, option):
     num_neutrons = np.zeros(N)
     
     for m in range(M/2,M):
-        for g in range(G):
-            if g%G/int(G/10) == 0:
-                print "  ..."+str(g/G*100)+"%"
+        for g in range(G): 
+            if g % (G/10) == 0:
+                print "  "+str(int(float(g+1)/float(G)*100.))+"%"
 
             # time at which pulse first reaches right boundary (x=1cm)
             pulse_start_time = 1/(mu[m]*v[g]) 
@@ -70,13 +70,10 @@ def time_of_flight(M, N, q, sigt, v, tau, option):
             # time at which neutrons are no longer at right boundary (x=1cm)
             pulse_end_time = 1/(mu[m]*v[g]) + tau
 
-            if pulse_end_time > detector_start_time:
-                break
-            else:
-                for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
-                    #delta_t = dt[n] 
-                    delta_t = min(max_t, t[n]+0.5*dt[n]) - max(min_t, t[n]-0.5*dt[n]) 
-                    num_neutrons[n] += delta_t*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
+            for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
+                #delta_t = dt[n] 
+                delta_t = min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) 
+                num_neutrons[n] += delta_t*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
 
     print "Time of flight calculation completed! \n"
                     
@@ -99,7 +96,7 @@ spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1)
 sigt = np.loadtxt('xs/92235/sigt', skiprows=1) 
 
 M = 2
-N = 10000
+N = 1000000
 q = chi(emid)/2.
 v = spgrp
 tau = 1e-10
@@ -121,7 +118,7 @@ energies = 0.5*(e[0:99999] + e[1:100000])
 
 
 M = 2
-N = 10000
+N = 1000
 q = chi(energies)/2.
 sigt = sig_235_t_interp(energies)
 v = vel(energies)
