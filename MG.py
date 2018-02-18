@@ -61,8 +61,8 @@ def time_of_flight(M, N, q, sigt, v, tau, option):
     
     for m in range(M/2,M):
         for g in range(G): 
-            if g % (G/10) == 0:
-                print "  "+str(int(float(g+1)/float(G)*100.))+"%"
+            if g % (G/20) == 0:
+                print "  "+str(int(float(g)/float(G)*100.))+"%"
 
             # time at which pulse first reaches right boundary (x=1cm)
             pulse_start_time = 1/(mu[m]*v[g]) 
@@ -71,8 +71,7 @@ def time_of_flight(M, N, q, sigt, v, tau, option):
             pulse_end_time = 1/(mu[m]*v[g]) + tau
 
             for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
-                #delta_t = dt[n] 
-                delta_t = min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) 
+                delta_t = 1 #min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) 
                 num_neutrons[n] += delta_t*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
 
     print "Time of flight calculation completed! \n"
@@ -96,14 +95,14 @@ spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1)
 sigt = np.loadtxt('xs/92235/sigt', skiprows=1) 
 
 M = 2
-N = 1000000
+N = 10000
 q = chi(emid)/2.
-v = spgrp
+v = vel(emid) #spgrp
 tau = 1e-10
 option = 'log'
 
 (t,mg) = time_of_flight(M, N, q, sigt, v, tau, option)
-plt.loglog(t,mg)
+plt.loglog(t,mg)#,'.')
 ###############################################################################
 # Open cross-section files
 sigma_235_t = np.genfromtxt('xs/raw_endf_92235/u235_total.csv', delimiter=",")
@@ -118,7 +117,7 @@ energies = 0.5*(e[0:99999] + e[1:100000])
 
 
 M = 2
-N = 1000
+N = 100
 q = chi(energies)/2.
 sigt = sig_235_t_interp(energies)
 v = vel(energies)
@@ -126,7 +125,7 @@ tau = 1e-10
 option = 'log'
 
 (t,exact) = time_of_flight(M, N, q, sigt, v, tau, option)
-plt.loglog(t,exact)
+plt.loglog(t,exact)#,'.')
 ###############################################################################
 
 plt.show()
