@@ -61,6 +61,7 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
     num_neutrons = np.zeros(N)
     
     for m in range(M/2,M):
+        print "\n\n  m =", m, "mu =", mu[m] 
         for g in range(G): 
             if g % (G/20) == 0:
                 print "  "+str(int(float(g)/float(G)*100.))+"%"
@@ -71,11 +72,14 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
             # time at which neutrons are no longer at right boundary (x=1cm)
             pulse_end_time = 1./(mu[m]*v[g]) + tau
 
+            #num_neutrons[get_index(t,pulse_start_time)-1: get_index(t,pulse_end_time)] += de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
+            #num_neutrons[get_index(t,pulse_start_time)-1: get_index(t,pulse_end_time)] += w[m]*q[g]*np.exp(-sigt[g]/mu[m])
+
             #for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
             for n in range(N):
-                delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )/dt[n]
-                #if delta_t > 0: print delta_t
-                num_neutrons[n] += delta_t#*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
+                delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )
+                num_neutrons[n] += delta_t*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m]) # (n/cm^2)
+
 
     print "Time of flight calculation completed! \n"
 
@@ -85,7 +89,7 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
 
 ###############################################################################
 # fission spectrum for U-235
-chi = lambda E: E**0#0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
+chi = lambda E: 0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
 
 # obtain velocity for a particular energy in (cm/s)
 vel = lambda E: np.sqrt(2.*E/938.280)*3e10 
@@ -99,12 +103,12 @@ spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1)
 # cross section (1/cm)
 sigt = np.loadtxt('xs/92235/sigt', skiprows=1) 
 
-M = 16
-N = 1000
+M = 4
+N = 250
 q = chi(emid)/2.
 v = spgrp
 tau = 1e-10
-option = 'lin'
+option = 'log'
 
 (t,mg) = time_of_flight(M, N, q, sigt, v, de, tau, option)
 plt.loglog(t,mg)#,'.')
@@ -120,16 +124,16 @@ e = np.logspace(2, -11, 100000)
 de = e[0:99999] - e[1:100000]
 energies = 0.5*(e[0:99999] + e[1:100000])
 
-M = 16
-N = 10
+M = 4
+N = 250
 q = chi(energies)/2.
 sigt = sig_235_t_interp(energies)
 v = vel(energies)
 tau = 1e-10
 option = 'log'
 
-#(t,exact) = time_of_flight(M, N, q, sigt, v, de, tau, option)
-#plt.loglog(t,exact)#,'.')
+(t,exact) = time_of_flight(M, N, q, sigt, v, de, tau, option)
+plt.loglog(t,exact)#,'.')
 ###############################################################################
 
 plt.show()
