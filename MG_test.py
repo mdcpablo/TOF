@@ -62,8 +62,8 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
     
     for m in range(M/2,M):
         for g in range(G): 
-            if g % (G/20) == 0:
-                print "  "+str(int(float(g)/float(G)*100.))+"%"
+            #if g % (G/20) == 0:
+            print "  "+str(int(float(g)/float(G)*100.))+"%"
 
             # time at which pulse first reaches right boundary (x=1cm)
             pulse_start_time = 1./(mu[m]*v[g]) 
@@ -91,23 +91,25 @@ chi = lambda E: E**0#0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
 vel = lambda E: np.sqrt(2.*E/938.280)*3e10 
 
 # energy at midpoint of energy group (MeV)
-emid = np.loadtxt('xs/emid', skiprows=1) 
+emid = np.loadtxt('xs_test/emid', skiprows=1) 
 # width of energy group (MeV)
-de = np.loadtxt('xs/de', skiprows=1) 
+de = np.loadtxt('xs_test/de', skiprows=1) 
 # speed of energy group (cm/s)
-spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1) 
+# spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1) 
 # cross section (1/cm)
-sigt = np.loadtxt('xs/92235/sigt', skiprows=1) 
+sigt = np.loadtxt('xs_test/92235/sigt', skiprows=1) 
 
-M = 16
+M = 2
 N = 1000
 q = chi(emid)/2.
-v = spgrp
+v = vel(emid)
 tau = 1e-10
 option = 'lin'
 
 (t,mg) = time_of_flight(M, N, q, sigt, v, de, tau, option)
+print mg
 plt.loglog(t,mg)#,'.')
+'''
 ###############################################################################
 # Open cross-section files
 sigma_235_t = np.genfromtxt('xs/raw_endf_92235/u235_total.csv', delimiter=",")
@@ -128,10 +130,10 @@ v = vel(energies)
 tau = 1e-10
 option = 'log'
 
-#(t,exact) = time_of_flight(M, N, q, sigt, v, de, tau, option)
-#plt.loglog(t,exact)#,'.')
+(t,exact) = time_of_flight(M, N, q, sigt, v, de, tau, option)
+plt.loglog(t,exact)#,'.')
 ###############################################################################
-
+'''
 plt.show()
 plt.close()
 
