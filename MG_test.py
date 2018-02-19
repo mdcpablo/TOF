@@ -71,11 +71,11 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
             # time at which neutrons are no longer at right boundary (x=1cm)
             pulse_end_time = 1./(mu[m]*v[g]) + tau
 
-            #for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
-            for n in range(N):
+            for n in range(get_index(t,pulse_start_time)-1, get_index(t,pulse_end_time)+1):
+            #for n in range(N):
                 delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )/dt[n]
                 #if delta_t > 0: print delta_t
-                num_neutrons[n] += delta_t#*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
+                num_neutrons[n] += delta_t*de[g]*w[m]*q[g]*np.exp(-sigt[g]/mu[m])
 
     print "Time of flight calculation completed! \n"
 
@@ -85,26 +85,26 @@ def time_of_flight(M, N, q, sigt, v, de, tau, option):
 
 ###############################################################################
 # fission spectrum for U-235
-chi = lambda E: E**0#0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
+chi = lambda E: 1.+0.*E #0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
 
 # obtain velocity for a particular energy in (cm/s)
 vel = lambda E: np.sqrt(2.*E/938.280)*3e10 
 
 # energy at midpoint of energy group (MeV)
-emid = np.loadtxt('xs_test/emid', skiprows=1) 
+emid = np.loadtxt('xs_7g/emid', skiprows=1) 
 # width of energy group (MeV)
-de = np.loadtxt('xs_test/de', skiprows=1) 
+de = np.loadtxt('xs_7g/de', skiprows=1) 
 # speed of energy group (cm/s)
 # spgrp = 1e6 * np.loadtxt('xs/spgrp', skiprows=1) 
 # cross section (1/cm)
-sigt = np.loadtxt('xs_test/92235/sigt', skiprows=1) 
+sigt = np.loadtxt('xs_7g/92235/sigt', skiprows=1) 
 
 M = 2
 N = 1000
 q = chi(emid)/2.
 v = vel(emid)
 tau = 1e-10
-option = 'lin'
+option = 'log'
 
 (t,mg) = time_of_flight(M, N, q, sigt, v, de, tau, option)
 print mg
