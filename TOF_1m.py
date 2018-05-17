@@ -13,6 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from numpy.polynomial.legendre import leggauss
+import os
+from operator import sub
 
 def get_index(array, value):
     index = len(array) - 1
@@ -88,10 +90,9 @@ def time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option):
             N_start = max(0, -1+np.searchsorted(t, pulse_start_time, side='left'))
             N_end = min(N, 1+np.searchsorted(t, pulse_end_time, side='right'))
             for n in range(N_start, N_end):
-                if t[n]-0.5*dt[n] < pulse_end_time and t[n]+0.5*dt[n] > pulse_start_time:  
-                    delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )
-                    num_neutrons[n] += delta_t*dx[i]*de[g]*q[g]*np.exp(-sigt_U[g]*(0.05-x_source[i]))*np.exp(-2.06*sigt_Fe[g]/mu) # (n/cm^2)
-
+                #if t[n]-0.5*dt[n] < pulse_end_time and t[n]+0.5*dt[n] > pulse_start_time:  
+                delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )
+                num_neutrons[n] += delta_t*dx[i]*de[g]*q[g]*np.exp(-sigt_U[g]*(0.05-x_source[i]))*np.exp(-2.06*sigt_Fe[g]/mu) # (n/cm^2)
                 
     print "Time of flight calculation completed! \n"
 
@@ -159,10 +160,8 @@ def time_of_flight_subelements(mu, I, N, q, sigt_Fe, sigt_U, v, de_sub, tau, opt
             N_end = min(N, 1+np.searchsorted(t, pulse_end_time, side='right'))
             for n in range(N_start, N_end):
                 delta_t = max(0, min(pulse_end_time, t[n]+0.5*dt[n]) - max(pulse_start_time, t[n]-0.5*dt[n]) )
-                #num_neutrons[n] += delta_t*de_sub[s,1]*q[s]*np.exp(-2.06*sigt[g]/mu) # (n/cm^2)
                 num_neutrons[n] += delta_t*dx[i]*de_sub[s,1]*q[s]*np.exp(-sigt_U[g]*(0.05-x_source[i]))*np.exp(-2.06*sigt_Fe[g]/mu) # (n/cm^2)
-
-
+                
     print "Time of flight calculation completed! \n"
 
     print v
@@ -175,56 +174,7 @@ chi = lambda E: 0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
 # obtain velocity for a particular energy in (cm/s)
 vel = lambda E: np.sqrt(2.*E/938.280)*3e10 
 
-# energy at midpoint of energy group (MeV)
-emid = np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/emid', skiprows=1) 
-# width of energy group (MeV)
-de = np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/de', skiprows=1) 
-# speed of energy group (cm/s)
-spgrp = 1e6 * np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/spgrp', skiprows=1) 
-# cross section (1/cm)
-sigt_Fe = np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/26000/sigt', skiprows=1) 
-sigt_U = np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/92235/sigt', skiprows=1) 
-
-#sigt_Fe *= 7.874*0.6022/55.847
-#sigt_U  *= 18.39374*0.6022/235.
-
-mu = 1.
-I = 20
-N = 250
-q = chi(emid)/2.
-#v = spgrp
-v = vel(emid)
-tau = 1e-10
-option = 'lin'
-
-(t,feds) = time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option)
-#plt.semilogy(t,feds,'b')
-#plt.xlim([0, 3.3e-7])
-###############################################################################
-clust = np.loadtxt('xs/xs_FEDS_1t_200r_600b_1000u/clust', skiprows=2, usecols=[0,1])
-clust[:,1] *= 1e-6 #converting values from clust file from eV to MeV
-num_subelements = len(clust) - 1
-
-de_sub = np.zeros((len(clust)-1,2)) 
-emid_sub = np.zeros(len(clust)-1) 
-for i in range(len(de_sub)):
-    de_sub[i,0] = clust[i,0]
-    de_sub[i,1] = clust[i,1] - clust[i+1,1] 
-    emid_sub[i] = 0.5*(clust[i,1] + clust[i+1,1]) 
-
-mu = 1.
-I = 20
-N = 250
-q = chi(emid_sub)/2.
-v = vel(emid_sub)
-tau = 1e-10
-option = 'lin'
-
-(t,subelements) = time_of_flight_subelements(mu, I, N, q, sigt_Fe, sigt_U, v, de_sub, tau, option)     
-plt.semilogy(t,subelements,'r')
-plt.xlim([0, 3.3e-7])
-#plt.show()
-##############################################################################
+'''
 # Open cross-section files
 sigma_Fe_t = np.loadtxt('xs/xs_NJOY_pointwise/26000', skiprows=1, usecols=[0,1])
 sigma_U_t = np.loadtxt('xs/xs_NJOY_pointwise/92235', skiprows=1, usecols=[0,1])
@@ -260,29 +210,211 @@ tau = 1e-10
 option = 'lin'
 
 (t,exact) = time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option)
-L2_error_feds = np.linalg.norm(exact-feds)/np.linalg.norm(exact)
-L2_error_subelements = np.linalg.norm(exact-subelements)/np.linalg.norm(exact)
-print L2_error_feds
-print L2_error_subelements
-plt.semilogy(t,exact,'g')#,'.')
-plt.xlim([0, 3.3e-7])
-plt.show()
-plt.close()
+
 exact_matrix = np.zeros((2,len(t)))
 exact_matrix[0] = t
 exact_matrix[1] = exact
 np.savetxt('exact.txt', exact_matrix.transpose(), fmt='%.18e', delimiter=' ')
-'''###############################################################################
+'''
 exact_matrix = np.loadtxt('exact.txt', delimiter=' ').transpose()
 t = exact_matrix[0]
 exact = exact_matrix[1]
-plt.plot(t,exact,'purple')
-plt.yscale('log')
-#plt.semilogy(t,exact,'purple')
-plt.xlim([0, 4e-7])
-plt.ylim([1e-23, 1e-11])
-plt.show()
-'''
+
+###############################################################################
+def run_prob(xsdir, exact):
+    # energy at midpoint of energy group (MeV)
+    emid = np.loadtxt(os.path.join(xsdir,'emid'), skiprows=1) 
+    # width of energy group (MeV)
+    de = np.loadtxt(os.path.join(xsdir,'de'), skiprows=1) 
+    # speed of energy group (cm/s)
+    spgrp = 1e6 * np.loadtxt(os.path.join(xsdir,'spgrp'), skiprows=1) 
+    # cross section (1/cm)
+    sigt_Fe = np.loadtxt(os.path.join(xsdir,'26000/sigt'), skiprows=1) 
+    sigt_U = np.loadtxt(os.path.join(xsdir,'92235/sigt'), skiprows=1) 
+
+    mu = 1.
+    I = 20
+    N = 250
+    q = chi(emid)/2.
+    #v = spgrp
+    v = vel(emid)
+    tau = 1e-10
+    option = 'lin'
+    
+    (t,signal) = time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option)
+    error = np.linalg.norm(exact-signal)/np.linalg.norm(exact)
+    
+    plt.semilogy(t,signal+1e-21*np.ones(len(signal)))
+    plt.xlim([0, 3.3e-7])
+    plt.ylim([1e-18, 1e-13])
+    return signal, error
+###############################################################################
+def run_subelements_prob(xsdir, exact):
+    # energy at midpoint of energy group (MeV)
+    emid = np.loadtxt(os.path.join(xsdir,'emid'), skiprows=1) 
+    # width of energy group (MeV)
+    de = np.loadtxt(os.path.join(xsdir,'de'), skiprows=1) 
+    # speed of energy group (cm/s)
+    spgrp = 1e6 * np.loadtxt(os.path.join(xsdir,'spgrp'), skiprows=1) 
+    # cross section (1/cm)
+    sigt_Fe = np.loadtxt(os.path.join(xsdir,'26000/sigt'), skiprows=1) 
+    sigt_U = np.loadtxt(os.path.join(xsdir,'92235/sigt'), skiprows=1) 
+
+    clust = np.loadtxt(os.path.join(xsdir,'clust'), skiprows=2, usecols=[0,1])
+    clust[:,1] *= 1e-6 #converting values from clust file from eV to MeV
+    num_subelements = len(clust) - 1
+    
+    de_sub = np.zeros((len(clust)-1,2)) 
+    emid_sub = np.zeros(len(clust)-1) 
+    for i in range(len(de_sub)):
+        de_sub[i,0] = clust[i,0]
+        de_sub[i,1] = clust[i,1] - clust[i+1,1] 
+        emid_sub[i] = 0.5*(clust[i,1] + clust[i+1,1]) 
+
+    mu = 1.
+    I = 20
+    N = 250
+    q = chi(emid_sub)/2.
+    v = vel(emid_sub)
+    tau = 1e-10
+    option = 'lin'
+    
+    (t,signal) = time_of_flight_subelements(mu, I, N, q, sigt_Fe, sigt_U, v, de_sub, tau, option) 
+    error = np.linalg.norm(exact-signal)/np.linalg.norm(exact)
+        
+    plt.semilogy(t,signal+1e-21*np.ones(len(signal)))
+    plt.xlim([0, 3.3e-7])
+    plt.ylim([1e-18, 1e-13])
+    return signal, error
+###############################################################################
+def make_speed_scatterplot(xsdir, figname):
+    # energy at midpoint of energy group (MeV)
+    emid = np.loadtxt(os.path.join(xsdir,'emid'), skiprows=1) 
+    # width of energy group (MeV)
+    de = np.loadtxt(os.path.join(xsdir,'de'), skiprows=1) 
+    # speed of energy group (cm/s)
+    spgrp = 1e6 * np.loadtxt(os.path.join(xsdir,'spgrp'), skiprows=1) 
+    # cross section (1/cm)
+    sigt_Fe = np.loadtxt(os.path.join(xsdir,'26000/sigt'), skiprows=1) 
+    sigt_U = np.loadtxt(os.path.join(xsdir,'92235/sigt'), skiprows=1) 
+
+    clust = np.loadtxt(os.path.join(xsdir,'clust'), skiprows=2, usecols=[0,1])
+    clust[:,1] *= 1e-6 #converting values from clust file from eV to MeV
+    num_subelements = len(clust) - 1
+    
+    de_sub = np.zeros((len(clust)-1,2)) 
+    emid_sub = np.zeros(len(clust)-1) 
+    for i in range(len(de_sub)):
+        de_sub[i,0] = clust[i,0]
+        de_sub[i,1] = clust[i,1] - clust[i+1,1] 
+        emid_sub[i] = 0.5*(clust[i,1] + clust[i+1,1]) 
+
+    mu = 1.
+    I = 20
+    N = 250
+    q = chi(emid_sub)/2.
+    v = vel(emid_sub)
+    t = 100.*np.ones(len(emid_sub))/v
+    plt.close()
+    plt.scatter(emid_sub,v)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlim([1e-2, 1e2])
+    plt.ylim([1e8, 1e10])
+    plt.xlabel('energy (MeV)')
+    plt.ylabel('speed (cm/s)')
+    #plt.savefig(figname)
+    #plt.show()
+    plt.close()
+    plt.scatter(t,de_sub[:,1])
+    plt.yscale('log')
+    plt.xlim([0, 3.3e-7])
+    #plt.ylim([1e-2, 1e2])
+    plt.ylim([1e-3,10])
+    plt.xlabel('time at takes for neutrons to reach 1m (s)')
+    plt.ylabel('energy-width for each subelement (MeV)')
+    plt.savefig(figname)
+    plt.show()
+    plt.close()
+###############################################################################
+make_speed_scatterplot('xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof_scatterplot.png')
+#make_speed_scatterplot('xs/xs_FEDS_13e_50s_50u', 'feds_r4_100dof.png')
+#make_speed_scatterplot('xs/xs_MG_50r_50u', 'mg_100dof.png')
+#make_speed_scatterplot('xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof.png')
+#make_speed_scatterplot('xs/xs_MG_200r_200u', 'mg_400dof.png')
+
+(mg_100, L2_error_mg_100) = run_prob('xs/xs_MG_50r_50u', exact)
+(mg_200, L2_error_mg_200) = run_prob('xs/xs_MG_100r_100u', exact)
+(mg_400, L2_error_mg_400) = run_prob('xs/xs_MG_200r_200u', exact)
+(mg_1600, L2_error_mg_1600) = run_prob('xs_old/xs_FEDS_iron_1600g_1600e', exact)
+
+(feds_r2_100, L2_error_feds_r2_100) = run_prob('xs/xs_FEDS_25e_50s_50u', exact)
+(feds_r2_200, L2_error_feds_r2_200) = run_prob('xs/xs_FEDS_50e_100s_100u', exact)
+(feds_r2_400, L2_error_feds_r2_400) = run_prob('xs/xs_FEDS_100e_200s_200u', exact)
+
+(feds_r4_100, L2_error_feds_r4_100) = run_prob('xs/xs_FEDS_13e_50s_50u', exact)
+(feds_r4_200, L2_error_feds_r4_200) = run_prob('xs/xs_FEDS_25e_100s_100u', exact)
+(feds_r4_400, L2_error_feds_r4_400) = run_prob('xs/xs_FEDS_50e_200s_200u', exact)
+(feds_r4_1600, L2_error_feds_r4_1600) = run_prob('xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
+
+(sub_r2_100, L2_error_sub_r2_100) = run_subelements_prob('xs/xs_FEDS_25e_50s_50u', exact)
+(sub_r2_200, L2_error_sub_r2_200) = run_subelements_prob('xs/xs_FEDS_50e_100s_100u', exact)
+(sub_r2_400, L2_error_sub_r2_400) = run_subelements_prob('xs/xs_FEDS_100e_200s_200u', exact)
+
+(sub_r4_100, L2_error_sub_r4_100) = run_subelements_prob('xs/xs_FEDS_13e_50s_50u', exact)
+(sub_r4_200, L2_error_sub_r4_200) = run_subelements_prob('xs/xs_FEDS_25e_100s_100u', exact)
+(sub_r4_400, L2_error_sub_r4_400) = run_subelements_prob('xs/xs_FEDS_50e_200s_200u', exact)
+(sub_r4_1600, L2_error_sub_r4_1600) = run_subelements_prob('xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
+###############################################################################
+
+plt.semilogy(t,exact+1e-21*np.ones(len(exact)))#,'.')
+plt.xlim([0, 3.3e-7])
+plt.ylim([1e-18, 1e-13])
+#plt.show()
+plt.close()
+
+print L2_error_mg_100
+print L2_error_mg_200
+print L2_error_mg_400
+print
+print L2_error_feds_r2_100
+print L2_error_feds_r2_200
+print L2_error_feds_r2_400
+print
+print L2_error_feds_r4_100
+print L2_error_feds_r4_200
+print L2_error_feds_r4_400
+print L2_error_feds_r4_1600
+print
+print L2_error_sub_r2_100
+print L2_error_sub_r2_200
+print L2_error_sub_r2_400
+print
+print L2_error_sub_r4_100
+print L2_error_sub_r4_200
+print L2_error_sub_r4_400
+print L2_error_sub_r4_1600
+
+error_mg = np.array([L2_error_mg_100, L2_error_mg_200, L2_error_mg_400])
+error_feds_r2 = np.array([L2_error_feds_r2_100, L2_error_feds_r2_200, L2_error_feds_r2_400])
+error_feds_r4 = np.array([L2_error_feds_r4_100, L2_error_feds_r4_200, L2_error_feds_r4_400])
+error_sub_r2 = np.array([L2_error_sub_r2_100, L2_error_sub_r2_200, L2_error_sub_r2_400])
+error_sub_r4 = np.array([L2_error_sub_r4_100, L2_error_sub_r4_200, L2_error_sub_r4_400])
+
+error_mg_old = np.array([L2_error_mg_100, L2_error_mg_200, L2_error_mg_400, L2_error_mg_1600])
+error_feds_r4_old = np.array([L2_error_feds_r4_100, L2_error_feds_r4_200, L2_error_feds_r4_400, L2_error_feds_r4_1600])
+error_sub_r4_old = np.array([L2_error_sub_r4_100, L2_error_sub_r4_200, L2_error_sub_r4_400, L2_error_sub_r4_1600])
+
+dof = np.array([100., 200., 400.])
+dof_old = np.array([100., 200., 400., 1600.])
+
+plt.loglog(dof,error_mg,'ko-', markersize=8, label='MG')
+plt.loglog(dof,error_feds_r2,'b+-', markersize=15,label='FEDS r=2')
+plt.loglog(dof,error_sub_r2,'gx-', markersize=13,label='subelements r=2')
+plt.loglog(dof_old,error_feds_r4_old,'r+-', markersize=15,label='FEDS r=4')
+plt.loglog(dof_old,error_sub_r4_old,'mx-', markersize=13,label='subelements r=4')
+plt.legend()
+#plt.show()
 '''
 #plt.loglog(t,feds2,'-r')
 plt.ylabel("$\phi$")
