@@ -134,55 +134,57 @@ def time_of_flight_subelements(mu, I, N, q, sigt_Fe, sigt_U, v, de_sub, tau, opt
 ###############################################################################
 # fission spectrum for U-235
 chi = lambda E: 0.4865*np.sinh(np.sqrt(2*E))*np.exp(-E)
-
+###############################################################################
 # obtain velocity for a particular energy in (cm/s)
 vel = lambda E: np.sqrt(2.*E/938.280)*3e10 
+###############################################################################
+def create_exact_TOF_signal():
+    # Open cross-section files
+    sigma_Fe_t = np.loadtxt('../xs/xs_NJOY_pointwise/26000', skiprows=1, usecols=[0,1])
+    sigma_U_t = np.loadtxt('../xs/xs_NJOY_pointwise/92235', skiprows=1, usecols=[0,1])
 
-# Open cross-section files
-sigma_Fe_t = np.loadtxt('xs/xs_NJOY_pointwise/26000', skiprows=1, usecols=[0,1])
-sigma_U_t = np.loadtxt('xs/xs_NJOY_pointwise/92235', skiprows=1, usecols=[0,1])
+    sigma_Fe_t[:,0] *= 1e-6
+    sigma_U_t[:,0]  *= 1e-6
+    #sigma_Fe_t[:,1] *= 7.874*0.6022/55.847
+    #sigma_U_t[:,1]  *= 18.39374*0.6022/235.
 
-sigma_Fe_t[:,0] *= 1e-6
-sigma_U_t[:,0]  *= 1e-6
-#sigma_Fe_t[:,1] *= 7.874*0.6022/55.847
-#sigma_U_t[:,1]  *= 18.39374*0.6022/235.
+    # Make interpolation functions
+    sigma_Fe_t_interp = interpolate.interp1d(sigma_Fe_t[:,0], sigma_Fe_t[:,1], bounds_error=False, fill_value=1.)
+    sigma_U_t_interp = interpolate.interp1d(sigma_U_t[:,0], sigma_U_t[:,1], bounds_error=False, fill_value=1.)
 
-# Make interpolation functions
-sigma_Fe_t_interp = interpolate.interp1d(sigma_Fe_t[:,0], sigma_Fe_t[:,1], bounds_error=False, fill_value=1.)
-sigma_U_t_interp = interpolate.interp1d(sigma_U_t[:,0], sigma_U_t[:,1], bounds_error=False, fill_value=1.)
+    # Create energy grid
+    G_njoy = 100000
+    #G_njoy = 100000
+    #e = np.logspace(np.log10(5e-1), np.log10(1e-2), G_njoy)
+    e = np.logspace(np.log10(14.2), np.log10(1e-2), G_njoy)
+    de = e[0:G_njoy-1] - e[1:G_njoy]
+    emid = 0.5*(e[0:G_njoy-1] + e[1:G_njoy])
 
-# Create energy grid
-G_njoy = 100000
-#G_njoy = 100000
-#e = np.logspace(np.log10(5e-1), np.log10(1e-2), G_njoy)
-e = np.logspace(np.log10(14.2), np.log10(1e-2), G_njoy)
-de = e[0:G_njoy-1] - e[1:G_njoy]
-emid = 0.5*(e[0:G_njoy-1] + e[1:G_njoy])
+    mu = 1.
+    I = 10
+    N = 10000
+    #I = 10
+    #N = 10000
+    sigt_Fe = sigma_Fe_t_interp(emid)
+    sigt_U = sigma_U_t_interp(emid)
+    q = chi(emid)/2.
+    v = vel(emid)
+    tau = 1e-10
+    #option = 'log'
+    option = 'lin'
 
-mu = 1.
-I = 10
-N = 10000
-#I = 10
-#N = 10000
-sigt_Fe = sigma_Fe_t_interp(emid)
-sigt_U = sigma_U_t_interp(emid)
-q = chi(emid)/2.
-v = vel(emid)
-tau = 1e-10
-#option = 'log'
-option = 'lin'
+    (t,exact) = time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option)
 
-(t,exact) = time_of_flight(mu, I, N, q, sigt_Fe, sigt_U, v, de, tau, option)
-
-exact_matrix = np.zeros((2,len(t)))
-exact_matrix[0] = t
-exact_matrix[1] = exact
-np.savetxt('exact.txt', exact_matrix.transpose(), fmt='%.18e', delimiter=' ')
-'''
-exact_matrix = np.loadtxt('exact.txt', delimiter=' ').transpose()
-t = exact_matrix[0]
-exact = exact_matrix[1]
-'''
+    exact_matrix = np.zeros((2,len(t)))
+    exact_matrix[0] = t
+    exact_matrix[1] = exact
+    np.savetxt('exact.txt', exact_matrix.transpose(), fmt='%.18e', delimiter=' ')
+    return t, exact
+###############################################################################
+def load_exact_TOF_signal():
+    exact_matrix = np.loadtxt('exact.txt', delimiter=' ').transpose()
+    t = exact_matrix[0]; signal = exact_matrix[1];
+    return t, signal
 ###############################################################################
 def run_prob(xsdir, exact):
     # energy at midpoint of energy group (MeV)
@@ -300,35 +302,35 @@ def make_speed_scatterplot(xsdir, figname):
     plt.show()
     plt.close()
 ###############################################################################
-#make_speed_scatterplot('xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof_scatterplot.png')
-#make_speed_scatterplot('xs/xs_FEDS_13e_50s_50u', 'feds_r4_100dof.png')
-#make_speed_scatterplot('xs/xs_MG_50r_50u', 'mg_100dof.png')
-#make_speed_scatterplot('xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof.png')
-#make_speed_scatterplot('xs/xs_MG_200r_200u', 'mg_400dof.png')
+#make_speed_scatterplot('../xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof_scatterplot.png')
+#make_speed_scatterplot('../xs/xs_FEDS_13e_50s_50u', 'feds_r4_100dof.png')
+#make_speed_scatterplot('../xs/xs_MG_50r_50u', 'mg_100dof.png')
+#make_speed_scatterplot('../xs/xs_FEDS_50e_200s_200u', 'feds_r4_400dof.png')
+#make_speed_scatterplot('../xs/xs_MG_200r_200u', 'mg_400dof.png')
 ###############################################################################
 def make_error_plots():
-    (mg_100, L2_error_mg_100) = run_prob('xs/xs_MG_50r_50u', exact)
-    (mg_200, L2_error_mg_200) = run_prob('xs/xs_MG_100r_100u', exact)
-    (mg_400, L2_error_mg_400) = run_prob('xs/xs_MG_200r_200u', exact)
-    (mg_1600, L2_error_mg_1600) = run_prob('xs_old/xs_FEDS_iron_1600g_1600e', exact)
+    (mg_100, L2_error_mg_100) = run_prob('../xs/xs_MG_50r_50u', exact)
+    (mg_200, L2_error_mg_200) = run_prob('../xs/xs_MG_100r_100u', exact)
+    (mg_400, L2_error_mg_400) = run_prob('../xs/xs_MG_200r_200u', exact)
+    (mg_1600, L2_error_mg_1600) = run_prob('../xs_old/xs_FEDS_iron_1600g_1600e', exact)
 
-    (feds_r2_100, L2_error_feds_r2_100) = run_prob('xs/xs_FEDS_25e_50s_50u', exact)
-    (feds_r2_200, L2_error_feds_r2_200) = run_prob('xs/xs_FEDS_50e_100s_100u', exact)
-    (feds_r2_400, L2_error_feds_r2_400) = run_prob('xs/xs_FEDS_100e_200s_200u', exact)
+    (feds_r2_100, L2_error_feds_r2_100) = run_prob('../xs/xs_FEDS_25e_50s_50u', exact)
+    (feds_r2_200, L2_error_feds_r2_200) = run_prob('../xs/xs_FEDS_50e_100s_100u', exact)
+    (feds_r2_400, L2_error_feds_r2_400) = run_prob('../xs/xs_FEDS_100e_200s_200u', exact)
 
-    (feds_r4_100, L2_error_feds_r4_100) = run_prob('xs/xs_FEDS_13e_50s_50u', exact)
-    (feds_r4_200, L2_error_feds_r4_200) = run_prob('xs/xs_FEDS_25e_100s_100u', exact)
-    (feds_r4_400, L2_error_feds_r4_400) = run_prob('xs/xs_FEDS_50e_200s_200u', exact)
-    (feds_r4_1600, L2_error_feds_r4_1600) = run_prob('xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
+    (feds_r4_100, L2_error_feds_r4_100) = run_prob('../xs/xs_FEDS_13e_50s_50u', exact)
+    (feds_r4_200, L2_error_feds_r4_200) = run_prob('../xs/xs_FEDS_25e_100s_100u', exact)
+    (feds_r4_400, L2_error_feds_r4_400) = run_prob('../xs/xs_FEDS_50e_200s_200u', exact)
+    (feds_r4_1600, L2_error_feds_r4_1600) = run_prob('../xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
 
-    (sub_r2_100, L2_error_sub_r2_100) = run_subelements_prob('xs/xs_FEDS_25e_50s_50u', exact)
-    (sub_r2_200, L2_error_sub_r2_200) = run_subelements_prob('xs/xs_FEDS_50e_100s_100u', exact)
-    (sub_r2_400, L2_error_sub_r2_400) = run_subelements_prob('xs/xs_FEDS_100e_200s_200u', exact)
+    (sub_r2_100, L2_error_sub_r2_100) = run_subelements_prob('../xs/xs_FEDS_25e_50s_50u', exact)
+    (sub_r2_200, L2_error_sub_r2_200) = run_subelements_prob('../xs/xs_FEDS_50e_100s_100u', exact)
+    (sub_r2_400, L2_error_sub_r2_400) = run_subelements_prob('../xs/xs_FEDS_100e_200s_200u', exact)
 
-    (sub_r4_100, L2_error_sub_r4_100) = run_subelements_prob('xs/xs_FEDS_13e_50s_50u', exact)
-    (sub_r4_200, L2_error_sub_r4_200) = run_subelements_prob('xs/xs_FEDS_25e_100s_100u', exact)
-    (sub_r4_400, L2_error_sub_r4_400) = run_subelements_prob('xs/xs_FEDS_50e_200s_200u', exact)
-    (sub_r4_1600, L2_error_sub_r4_1600) = run_subelements_prob('xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
+    (sub_r4_100, L2_error_sub_r4_100) = run_subelements_prob('../xs/xs_FEDS_13e_50s_50u', exact)
+    (sub_r4_200, L2_error_sub_r4_200) = run_subelements_prob('../xs/xs_FEDS_25e_100s_100u', exact)
+    (sub_r4_400, L2_error_sub_r4_400) = run_subelements_prob('../xs/xs_FEDS_50e_200s_200u', exact)
+    (sub_r4_1600, L2_error_sub_r4_1600) = run_subelements_prob('../xs_old/xs_FEDS_1t_200r_600b_1000u', exact)
 
     plt.semilogy(t,exact+1e-21*np.ones(len(exact)))#,'.')
     plt.xlim([0, 3.3e-7])
@@ -573,9 +575,9 @@ plt.xlim([0, 3.3e-7])
 plt.ylim([1e-18, 1e-12])
 exact = signal_coarse
 
-run_with_coarse_time_step('xs/xs_MG_200r_200u', exact)
-run_with_coarse_time_step('xs/xs_FEDS_50e_200s_200u', exact)
-run_subelements_with_coarse_time_step('xs/xs_FEDS_50e_200s_200u', exact)
+run_with_coarse_time_step('../xs/xs_MG_200r_200u', exact)
+run_with_coarse_time_step('../xs/xs_FEDS_50e_200s_200u', exact)
+run_subelements_with_coarse_time_step('../xs/xs_FEDS_50e_200s_200u', exact)
 
 plt.show()
 
