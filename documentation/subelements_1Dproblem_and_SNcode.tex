@@ -1,0 +1,180 @@
+\documentclass{article}
+%\usepackage{amsmath}
+%\usepackage[labelsep=period]{caption}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+%\usepackage[margin=3cm]{geometry}
+\usepackage{amsmath}
+\usepackage{tabls}
+\usepackage{enumitem}
+
+\begin{document}
+
+\section{Motivation for Research}
+
+Previously, the finite-element-with-discontiguous-support method (FEDS) was used to discretize the energy domain for steady-state radiation transport problems \cite{till2015phd}. FEDS is a generalization of the Mutligroup method which decomposes the energy domain first into coarse groups and then further partitions the coarse groups into discontiguous energy elements within each coarse group. Till demonstrated that for steady-state radiation transport simulations, FEDS generally converges faster to an energy-refined solution than the standard multigroup (MG) method. however, in some time-dependent simulations Till also demonstrated that FEDS converges slower than MG \cite{till2015phd}. 
+
+We think the reason FEDS sometimes performs worse than MG for time-dependent problems is that all the discontiguous energy segments (subelements) that belong to an FEDS energy element span a large range of velocities; the range of velocities that belong to an energy element can be as large as a coarse group. Thus, each element's value for velocity may only be as accurate just using an average coarse-group velocity.
+
+We believe that assigning each subelement a separate velocity would transport particles to different regions of a geometry at more realistic times, and lead to more physically-accurate time-dependent simulations. In this document, we use an analytic 1D time-dependent test problem to compare different energy discretizations such as MG, FEDS, and a version of FEDS with distinct subelement velocities (FEDS-sub). In this document, we also discuss how an $S_n$ code can be modified to conduct time-dependent simulations using FEDS-sub energy discretization.
+
+\section{1D Analytic Test Problem}
+This 1D neutron tranport problem includes:
+\begin{itemize}
+\item a slab of U-235 for $x \in [0,A)$
+\item a slab of natural iron for $x \in [A, A+B)$
+\item a vacuum for $x \in [A+B,D)$
+\item a point detector at $x = D$ 
+\end{itemize}
+where $A = 0.05$ cm, $B = 2.06$ cm, and $D = 100$ cm \cite{till2015phd}. Since this is just a toy problem, we assumed that the slab of U-235 has a fission source uniformly-distributed in $x$ and all neutrons are emitted in the forward ($\mu =1$) direction. In addition, we set the U-235 and the iron slabs to be pure absorbers, with the absorption cross section equal to the total macroscopic cross section. 
+
+\subsection{Steady-State Solution}
+For this geometry, the steady-state flux at the detector location can be calculated by integrating an exponential over the thickness of the uranium slab $a$, and then integrating over all neutron energies to get the total flux,
+\begin{equation}
+\phi = \int_0^\infty dE \, \int_0^A dx_s \, \chi_{235}(E) \, \text{exp}\big[-(A - x_s) \sigma_{235}(E) - B \sigma_{Fe}(E)\big] \: .
+\end{equation}
+
+\subsection{Time-Dependent Solution}
+If we assume the fission source, $\chi_{235}(E)$, is only pulsed for times $t \in [0, \tau]$, we get that the time-of-flight response at the detector location for times $t > \tau$ is 
+\begin{multline}
+\phi^{k+\frac{1}{2}} = \int_{t^{k}}^{t^{k+1}} dt \int_0^{\tau} dT_s \int_0^\infty dE \, \int_0^A dx_s \, \delta\Big[t - \Big(T_s + \frac{D-x_s}{v(E)}\Big)\Big] \, \chi_{235}(E) \times \\ \text{exp}\big[-(A - x_s) \sigma_{235}(E) -B \sigma_{Fe}(E)\big]  \: .
+\end{multline}
+In a computer code, the Dirac delta function can be handled by using an IF-statement that checks that the time falls in range $t \in \Big[(D-x_s)/v(E), \: \tau + (D-x_s)/v(E) \Big]$ for a given $v(E)$. 
+
+Similarly, the analytic MG solution is 
+\begin{multline}
+\phi^{k+\frac{1}{2}} = \sum_{g=1}^G \int_{t^{k}}^{t^{k+1}} dt \int_0^{\tau} dT_s \, \int_0^A dx_s \, \delta\Big[t - \Big(T_s + \frac{D-x_s}{v_g}\Big)\Big] \, \chi_{235,g} \times \\ \text{exp}\big[-(A - x_s) \sigma_{235,g} - B \sigma_{Fe,g}\big]  \: ,
+\end{multline}
+the analytic FEDS solution is 
+\begin{multline}
+\phi^{k+\frac{1}{2}} = \sum_{e=1}^E \int_{t^{k}}^{t^{k+1}} dt \int_0^{\tau} dT_s \, \int_0^A dx_s \, \delta\Big[t - \Big(T_s + \frac{D-x_s}{v_e}\Big)\Big] \, \chi_{235,e} \times \\ \text{exp}\big[-(A - x_s) \sigma_{235,e} - B \sigma_{Fe,e}\big]  \: ,
+\end{multline}
+and the analytic FEDS-sub solution is 
+\begin{multline}
+\phi^{k+\frac{1}{2}} = \sum_{sub=1}^S \int_{t^{k}}^{t^{k+1}} dt \int_0^{\tau} dT_s \, \int_0^A dx_s \, \delta\Big[t - \Big(T_s + \frac{D-x_s}{v_\text{sub}}\Big)\Big] \, \chi_{235,e} \times \\ \text{exp}\big[-(A - x_s) \sigma_{235,e} - B \sigma_{Fe,e}\big]  \: .
+\end{multline}
+Note that only differences between the FEDS solution and the FEDS-sub solution are that the velocity in the Dirac delta function is $v_\text{sub}$ for FEDS-sub (instead of $v_e$ as it is in FEDS), and the summation is over all subelements $S$ in FEDS-sub (instead of over all elements $E$ as it is in FEDS).
+
+\pagebreak
+
+\section{Future Work: Time-Dependent $S_n$}
+
+In this section, we present a discrete-ordinates ($S_n$) method with MG energy discretization for 1D time-dependent simulations. Later, we discuss how this method can be molded to use FEDS-sub energy discretization.
+
+\subsection{MG $S_n$}
+
+The 1-D MG $S_n$ equations with implicit-Euler time differencing are
+\begin{equation}
+\frac{\psi^{k}_{g,m} - \psi^{k-1}_{g,m}}{v_g \Delta t} + \mu_m \frac{\partial \psi^{k}_{g,m}}{\partial x} + \sigma_{t,g} \psi^{k}_{g,m}  = Q^{k}_{g,m}  \:,  \: m=1,...,N \:, \: g=1,...,G \: .
+\end{equation}
+
+These can be rewritten for time step $k$ in the familiar form
+\begin{equation}
+\label{eq:snmg}
+\mu_m \frac{\partial \psi_{g,m}}{\partial x} + \tilde{\sigma}_{t,g} \psi_{g,m}  = \tilde{Q}_{g,m} \:,  \: m=1,...,N \:, \: g=1,...,G 
+\end{equation}
+
+where  
+\begin{equation*}
+\tilde{\sigma}_{t,g} = \sigma_{t,g} + \frac{1}{v_g \Delta t} 
+\end{equation*} 
+
+\begin{equation*}
+\tilde{Q}_{g,m} = Q_{g,m} + \frac{\psi^{k-1}_{g,m}}{v_g \Delta t}
+\end{equation*} 
+
+and
+\begin{equation*}
+Q_{g,m} = \sum_{g'=1}^G \frac{1}{2} \sigma_{pf,g' \to g} \phi_{0,g'} + \sum_{g'=1}^G \sum_{\ell=1}^L \frac{2 \ell + 1}{2} (\sigma_{s,\ell,g'\to g}\phi_{\ell,g'} + q_{\ell,g}) P_\ell(\mu_m)
+\end{equation*}
+
+\begin{equation*}
+\sigma_{s,\ell,g'\to g} = \int_{-1}^1 d\mu_o \, \sigma_{s,g' \to g} (\mu_o) P_\ell(\mu_o) 
+\end{equation*}
+
+\begin{equation*}
+\phi_{\ell,g'} = \sum_{m=1}^N \psi_{g',m} P_\ell(\mu) w_m 
+\end{equation*}
+
+\begin{equation*}
+q_{\ell,g} = \int_{-1}^1 d\mu \, q_{g} (\mu) P_\ell(\mu) \: .
+\end{equation*}
+
+Note that these time-dependent $S_n$ equation only consider prompt neutrons, which are taken into account in the group-to-group prompt-fission matrix $\sigma_{pf,g' \to g}$. The prompt-fission matrix is similar to a scattering matrix except more than one neutron can be emitted into group $g$ and all neutrons are emitted isotropically.
+
+Next, we'll present two types of spatial distretizations: Step discretization and Diamond-Difference discretization. The Step method is a vertex-centered method with upwinding. For cell $i+\frac{1}{2}$ the Step equations are
+\begin{equation*}
+\mu_m \Big( \frac{\psi_{g,m,i+1} - \psi_{g,m,i}}{h_x} \Big) +  \tilde{\sigma}_{t,g,i+\frac{1}{2}} \psi_{g,m,i+1} =  \tilde{Q}_{g,m,i+\frac{1}{2}} \:, \quad \mu_m < 0
+\end{equation*} 
+\begin{equation*}
+\mu_m \Big( \frac{\psi_{g,m,i+1} - \psi_{g,m,i}}{h_x} \Big) + \tilde{\sigma}_{t,g,i+\frac{1}{2}} \psi_{g,m,i} =   \tilde{Q}_{g,m,i+\frac{1}{2}}  \:, \quad \mu_m > 0 \: .
+\end{equation*}
+On the other hand, the Diamond-Difference method is a cell-centered method. For cell $i+\frac{1}{2}$ the Diamond-Difference equation is
+\begin{equation*}
+\mu_m \Big( \frac{\psi_{g,m,i+1} - \psi_{g,m,i}}{h_x} \Big) +  \tilde{\sigma}_{t,g,i+\frac{1}{2}} \Big( \frac{\psi_{g,m,i+1} + \psi_{g,m,i}}{2} \Big) =  \tilde{Q}_{g,m,i+\frac{1}{2}} \: .
+\end{equation*} 
+
+The spatial cell values for the Step method or Diamond-Difference method are updated based on the direction $\mu_m$. For $\mu_m > 0$, the spatial cell values are updated rightward, starting from the left boundary. For $\mu_m < 0$, the spatial cell values are updated leftward, starting from the right boundary. 
+
+The Step method and Diamond-Difference methods both have advantages and disadvantages. The Diamond-Difference method is a central difference estimate for the spatial cell and thus is higher order than the Step method (and therefore converges faster). However, the Step method is more stable that Diamond-Difference and less likely to give oscillatory solutions with nonphysical negative values. 
+
+\pagebreak
+
+\subsection{FEDS-sub $S_n$}
+
+In this section, we will demonstrate our vision for a $S_n$ code with FEDS-sub energy discretization. We envision sweeping over all spatial cells for each FEDS subelement, but using element cross section to update the source term inbetween each source-iteration.  
+
+The 1-D time-dependent $S_n$ with FEDS-sub energy discretization is similar to the MG; for FEDS-sub Eq. (\ref{eq:snmg}) becomes
+\begin{equation}
+\mu_m \frac{\partial \psi_{\text{sub},m}}{\partial x} + \tilde{\sigma}_{t,\text{sub}} \psi_{\text{sub},m}  = \tilde{Q}_{\text{sub},m} \:,  \: m=1,...,N \:, \: \text{sub}=1,...,S 
+\end{equation}
+
+where  
+\begin{equation*}
+\tilde{\sigma}_{t,\text{sub}} = A^{-1}_\text{el} \sigma_{t,\text{el}} A_\text{el} + \frac{1}{v_\text{sub} \Delta t} 
+\end{equation*} 
+
+\begin{equation*}
+\tilde{Q}_{\text{sub},m} = A_\text{el}^{-1} Q^{k}_{\text{el},m} + \frac{\psi^{k-1}_{\text{sub},m}}{v_{\text{sub}} \Delta t}
+\end{equation*} 
+
+and
+\begin{equation*}
+Q_{\text{el},m} = \sum_{\text{el}'=1}^E \frac{1}{2} \sigma_{\text{pf},\text{el}' \to \text{el}} \phi_{0,\text{el}'} + \sum_{\text{el}'=1}^E \sum_{\ell=1}^L \frac{2 \ell + 1}{2} (\sigma_{s,\ell,\text{el}'\to \text{el}}\phi_{\ell,\text{el}'} + q_{\ell,\text{el}}) P_\ell(\mu_m)
+\end{equation*}
+
+\begin{equation*}
+\sigma_{s,\ell,\text{el}'\to \text{el}} = \int_{-1}^1 d\mu_o \, \sigma_{s,\text{el}' \to \text{el}} (\mu_o) P_\ell(\mu_o) 
+\end{equation*}
+
+\begin{equation*}
+\phi_{\ell,\text{el}'} = \sum_{m=1}^N \psi_{\text{el}',m} P_\ell(\mu) w_m 
+\end{equation*}
+
+\begin{equation*}
+q_{\ell,\text{el}} = \int_{-1}^1 d\mu \, q_{\text{el}} (\mu) P_\ell(\mu)
+\end{equation*}
+
+\begin{equation*}
+q_{\text{el}} = A_\text{el} q_\text{sub}
+\end{equation*}
+
+\begin{equation*}
+\psi_{\text{el},m} = A_\text{el} \psi_{\text{sub},m} = \sum_{\text{sub} \in \text{el}} a_\text{sub} \psi_{\text{sub},m}
+\end{equation*}
+
+\begin{equation*}
+a_\text{sub} \approx \frac{\int_{\Delta E_{sub}} dE \, \psi(E)}{\int_{\Delta E_\text{el}} dE \, \psi(E)} \: , \: \text{sub} \in \text{el} \ : .
+\end{equation*}
+
+Each $a_\text{sub}$ can be computed based on the weighting spectrum used in Barnfire, and therefore the rectangular matrix $A$ can be constructed prior to the $S_n$ calculation. In addition, the $\tilde{\sigma}_{t,\text{sub}}$ can be computed once at the beginning on the simulation, and the $\tilde{Q}_{\text{sub},m}$ term can be computed inbetween source iteration steps.
+ 
+\clearpage
+
+\bibliographystyle{plain}
+\bibliography{myReference}
+
+\end{document}
+ 
+ 
+
