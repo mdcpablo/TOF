@@ -20,4 +20,6 @@ where A = 0.05 cm, B = 2.06 cm, and D = 100 cm. The slab of U-235 has a fission 
 
 We assume the fission source <img src="http://latex.codecogs.com/gif.latex?\chi_{235}(E)" border="0"/> is only pulsed for times <img src="http://latex.codecogs.com/gif.latex?t\in[0,\tau]" border="0"/>, and measure the time-dependent detector response.
 
+--------------
 
+More details of this code are explained in the documentation folder.
